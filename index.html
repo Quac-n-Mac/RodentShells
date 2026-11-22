@@ -154,8 +154,8 @@ var fill=document.getElementById('rs-fill'), pct=document.getElementById('rs-pct
     status=document.getElementById('rs-status'), splash=document.getElementById('rs-splash'),
     msg=document.getElementById('rs-msg');
 function fail(t){ status.style.display='flex'; status.innerHTML='<div style="max-width:480px;text-align:center">'+t+'</div>'; }
-msg.textContent='Downloading game (about 98 MB, cached after first visit)...';
-var pckPromise=fetch('rodentshells.pck.gz').then(function(r){
+msg.textContent='Downloading game (about 101 MB, cached after first visit)...';
+var pckPromise=fetch('rodentshells.pck.gz?v=025').then(function(r){
   if(!r.ok) throw new Error('download failed: '+r.status);
   var ds=new DecompressionStream('gzip');
   return new Response(r.body.pipeThrough(ds)).arrayBuffer();
@@ -167,7 +167,7 @@ window.fetch=function(url,opts){
   return realFetch(url,opts);
 };
 pckPromise.then(function(){ msg.textContent='Starting engine...'; });
-var engine=new Engine({executable:'godot',canvas:document.getElementById('canvas'),fileSizes:{'godot.wasm':39513091,'godot.pck':115521796}});
+var engine=new Engine({executable:'godot',canvas:document.getElementById('canvas'),fileSizes:{'godot.wasm':39513091,'godot.pck':115529956}});
 engine.startGame({onProgress:function(c,t){ if(t>0){var p=Math.round(c/t*100); fill.style.width=p+'%'; pct.textContent=p+'%'; } }}).then(function(){
   status.style.display='none';
   splash.style.display='flex';
