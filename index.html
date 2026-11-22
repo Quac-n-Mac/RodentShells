@@ -45,7 +45,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   canvas.dataset.rsPointerRecovery = '1';
   var request = canvas.requestPointerLock;
   var exit = document.exitPointerLock;
-  var wantsCapture = false, pending = false;
+  var wantsCapture = false, pending = false, gameplay = null;
   function cursor() {
     canvas.classList.toggle('rs-captured', wantsCapture);
   }
@@ -59,7 +59,18 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
       else pending = false;
     } catch (e) { pending = false; }
   }
+  window.rsSetGameplayCapture = function (active) {
+    gameplay = !!active;
+    wantsCapture = gameplay;
+    cursor();
+    if (gameplay) recover();
+    else {
+      pending = false;
+      if (document.pointerLockElement === canvas && exit) exit.call(document);
+    }
+  };
   if (request) canvas.requestPointerLock = function () {
+    if (gameplay === false) return Promise.resolve();
     wantsCapture = true;
     cursor();
     // Godot does not consume the returned promise. Always handle rejection.
