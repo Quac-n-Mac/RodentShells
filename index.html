@@ -38,6 +38,64 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
 <div id="rs-splash"><div>RODENTSHELLS<br><br>CLICK OR PRESS ANY KEY TO START</div><small>goes fullscreen - ESC opens the pause menu in-game<br>use your browser's F11 (or the game's Options) to leave fullscreen</small></div>
 <script src="godot.js"></script>
 <script>
+// Preserve the game's capture/release intent across browser fullscreen changes.
+(function () {
+  var canvas = document.getElementById('canvas');
+  if (!canvas || canvas.dataset.rsPointerRecovery) return;
+  canvas.dataset.rsPointerRecovery = '1';
+  var request = canvas.requestPointerLock;
+  var exit = document.exitPointerLock;
+  var wantsCapture = false, pending = false;
+  function cursor() {
+    canvas.classList.toggle('rs-captured', wantsCapture);
+  }
+  function recover() {
+    cursor();
+    if (!wantsCapture || document.hidden || !document.hasFocus() || !request || pending || document.pointerLockElement === canvas) return;
+    pending = true;
+    try {
+      var result = request.call(canvas);
+      if (result && result.then) result.then(function () { pending = false; }, function () { pending = false; });
+      else pending = false;
+    } catch (e) { pending = false; }
+  }
+  if (request) canvas.requestPointerLock = function () {
+    wantsCapture = true;
+    cursor();
+    // Godot does not consume the returned promise. Always handle rejection.
+    recover();
+    return Promise.resolve();
+  };
+  if (exit) document.exitPointerLock = function () {
+    wantsCapture = false;
+    cursor();
+    return exit.call(document);
+  };
+  document.addEventListener('pointerlockchange', function () {
+    pending = false;
+    cursor();
+    // Esc may drop capture. Do not fight Esc: the next canvas click recovers it.
+  });
+  document.addEventListener('pointerlockerror', function () { pending = false; });
+  document.addEventListener('fullscreenchange', function () {
+    canvas.focus({preventScroll: true});
+    recover();
+  });
+  window.addEventListener('focus', recover);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) recover(); });
+  canvas.addEventListener('mousedown', function (event) {
+    if (wantsCapture && document.pointerLockElement !== canvas) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      canvas.focus({preventScroll: true});
+      recover();
+    }
+  }, true);
+  var style = document.createElement('style');
+  style.textContent = '#canvas.rs-captured{cursor:none!important}';
+  document.head.appendChild(style);
+})();
+
 (function(){
 var fill=document.getElementById('rs-fill'), pct=document.getElementById('rs-pct'),
     status=document.getElementById('rs-status'), splash=document.getElementById('rs-splash'),
