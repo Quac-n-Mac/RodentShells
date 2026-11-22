@@ -1,20 +1,26 @@
 # RodentShells
 
-Play **RodentShells** in a browser tab, as one single HTML file:
+Play **RodentShells** in a browser tab:
+[quac-n-mac.github.io/RodentShells](https://quac-n-mac.github.io/RodentShells/)
+- hosted, nothing to download.
+
+Or grab the single HTML file from
+[Releases](https://github.com/Quac-n-Mac/RodentShells/releases):
 double-click `RodentShells.html` and play. Works offline, no install,
 no server - school Chromebook friendly.
 
-Progress saves move around as copy-paste codes, so nothing depends on
-browser storage being allowed.
+Progress saves move around as a `save.txt` file: press **SAVE** in the
+game's top bar to download it, **LOAD** to restore it on any other
+device or copy - nothing depends on browser storage being allowed.
 
-## How to play
+## How to play (single file)
 
 1. Grab `RodentShells.html` from the latest
    [Release](https://github.com/Quac-n-Mac/RodentShells/releases).
 2. Open it in Chrome or Edge (double-click works - no server needed).
 3. Click the game once so it has keyboard focus, then play.
-4. Press **F6** to copy your save code; **F7** to paste it back on any
-   other copy of the file.
+4. Press **SAVE** (top bar) to download your `save.txt`; **LOAD** to
+   restore it on any other copy or device.
 
 ### Chromebook / Google Drive
 
@@ -24,6 +30,9 @@ install or unblock.
 
 ## What's in here
 
+- `index.html` + `godot.*` + `rodentshells.pck.gz` - the hosted build
+  served by GitHub Pages (engine files and compressed game data as
+  separate files).
 - `RodentShells.html` (in Releases) - the whole game in one file:
   the Godot 4.7.1 web runtime plus the full game data, compressed and
   unpacked in your browser at startup.
