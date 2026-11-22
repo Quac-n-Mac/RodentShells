@@ -13,6 +13,10 @@ Progress saves move around as a `save.txt` file: press **SAVE** in the
 game's top bar to download it, **LOAD** to restore it on any other
 device or copy - nothing depends on browser storage being allowed.
 
+## v0.2.5-alpha
+
+The single HTML is about 148 MB, 28.6% smaller than v0.2.4. A versioned local asset cache reduces repeat unpacking; it is optional and falls back safely when storage is blocked. Startup checks prepare tutorial/pillar graphics and shared sounds behind a progress bar. Arbitrary gameplay warmup is not enabled, and this is not a stutter-free claim. See [test notes and limits](docs/STATUS-v0.2.5.md).
+
 ## How to play (single file)
 
 1. Grab `RodentShells.html` from the latest
