@@ -51,7 +51,7 @@ window.fetch=function(url,opts){
   return realFetch(url,opts);
 };
 pckPromise.then(function(){ msg.textContent='Starting engine...'; });
-var engine=new Engine({executable:'godot',canvas:document.getElementById('canvas'),fileSizes:{'godot.wasm':39513091,'godot.pck':115515556}});
+var engine=new Engine({executable:'godot',canvas:document.getElementById('canvas'),fileSizes:{'godot.wasm':39513091,'godot.pck':115521796}});
 engine.startGame({onProgress:function(c,t){ if(t>0){var p=Math.round(c/t*100); fill.style.width=p+'%'; pct.textContent=p+'%'; } }}).then(function(){
   status.style.display='none';
   splash.style.display='flex';
