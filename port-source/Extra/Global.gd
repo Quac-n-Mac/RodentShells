@@ -793,6 +793,8 @@ func _rs_autotest() -> void:
 				print("RS autotest: done")
 				if "testpillar" in str(JavaScriptBridge.eval("String(location.search)", true)):
 					call_deferred("_rs_test_pillar")
+				if "rsmeasure" in str(JavaScriptBridge.eval("String(location.search)", true)):
+					call_deferred("_rs_measure_actions")
 				return
 	print("RS autotest: setup screen not found")
 
@@ -884,7 +886,15 @@ func _rs_prewarm_run() -> void:
 	stage_layer.add_child(stage)
 	await tree.process_frame
 	await RenderingServer.frame_post_draw
-	var paths = ["res://Scenes/Levels/tutorial.tscn", "res://Scenes/pillar.tscn"]
+	var paths = ["res://Scenes/Levels/tutorial.tscn", "res://Scenes/pillar.tscn",
+		"res://Scenes/player.tscn",
+		"res://Scenes/FX/fxdust.tscn", "res://Scenes/FX/fxdust2.tscn",
+		"res://Scenes/FX/fxgunshot.tscn", "res://Scenes/FX/fxgunshot2.tscn",
+		"res://Scenes/FX/fxboost.tscn", "res://Scenes/FX/fxhit2.tscn",
+		"res://Scenes/FX/fxslice.tscn", "res://Scenes/FX/crack.tscn",
+		"res://Scenes/bullet_casing.tscn", "res://Scenes/player_bullet.tscn",
+		"res://Scenes/bullet.tscn", "res://Scenes/bullet2.tscn", "res://Scenes/bullet3.tscn",
+		"res://Scenes/bullet_aim.tscn"]
 	paths.sort()
 	# Cache objects, not every whole level. PackedScene.get_state is data only.
 	for i in paths.size():
@@ -919,6 +929,7 @@ func _rs_prewarm_run() -> void:
 		stage.add_child(part)
 		slots.append([spr,part])
 	var counts = {"textures":0,"materials":0,"particles":0,"sounds":0,"frames":0}
+	var _frames_drawn = 0
 	for i in _rs_warm_resources.size():
 		var r = _rs_warm_resources[i]
 		var sprite = slots[i % 8][0]
@@ -939,7 +950,12 @@ func _rs_prewarm_run() -> void:
 			for an in r.get_animation_names():
 				for f in r.get_frame_count(an):
 					var tx = r.get_frame_texture(an,f)
-					if tx != null: tx.get_rid()
+					if tx == null: continue
+					sprite.texture = tx
+					_frames_drawn += 1
+					if _frames_drawn % 8 == 0:
+						await tree.process_frame
+						await RenderingServer.frame_post_draw
 			counts.frames += 1
 		elif r is AudioStreamOggVorbis or r is AudioStreamWAV or r is AudioStreamMP3:
 			# Decode a short buffer offline. Never route test sounds to a bus.
@@ -979,6 +995,54 @@ func _rs_prewarm_run() -> void:
 	for gp in pillar_parts: gp.queue_free()
 	await tree.process_frame
 	print("RS pillar debris warm done count=",pillar_parts.size())
+	# First-use warmup for the common player actions (shoot/jump/slide):
+	# instantiate each tiny FX scene once behind the overlay and render it,
+	# so scene setup, animation players, materials and particles are ready.
+	lbl.text = "STARTUP CHECK\nTesting action effects..."
+	var fx_paths = ["res://Scenes/FX/fxdust.tscn", "res://Scenes/FX/fxdust2.tscn",
+		"res://Scenes/FX/fxgunshot.tscn", "res://Scenes/FX/fxgunshot2.tscn",
+		"res://Scenes/FX/fxboost.tscn", "res://Scenes/FX/fxhit2.tscn",
+		"res://Scenes/FX/fxslice.tscn", "res://Scenes/bullet_casing.tscn"]
+	for pth in fx_paths:
+		var ps = load(pth)
+		if ps == null: continue
+		var inst = ps.instantiate()
+		stage.add_child(inst)
+		if inst.has_method("do_fx"):
+			inst.do_fx(false)
+		await tree.process_frame
+		await RenderingServer.frame_post_draw
+		if is_instance_valid(inst): inst.queue_free()
+		await tree.process_frame
+	print("RS action fx warm done")
+	# Route every collected sound through the real audio path once, inaudibly,
+	# so the first in-game play does not initialise the playback pipeline.
+	lbl.text = "STARTUP CHECK\nTesting audio playback..."
+	var audio_players = []
+	for j in range(4):
+		var ap = AudioStreamPlayer.new()
+		ap.volume_db = -80.0
+		stage.add_child(ap)
+		audio_players.append(ap)
+	var snd_idx = 0
+	for r in _rs_warm_resources:
+		if not (r is AudioStream): continue
+		if r.get_length() > 4.0: continue
+		var ap2 = audio_players[snd_idx % 4]
+		ap2.stop()
+		ap2.stream = r
+		ap2.play()
+		snd_idx += 1
+		if snd_idx % 16 == 0: print("RS audio warm ",snd_idx)
+		if snd_idx % 4 == 0:
+			await tree.process_frame
+			await RenderingServer.frame_post_draw
+	await tree.process_frame
+	await RenderingServer.frame_post_draw
+	for ap3 in audio_players:
+		ap3.stop()
+		ap3.queue_free()
+	print("RS audio playback warm done count=",snd_idx)
 	# Stage shaders use natural draws. No force_draw and no gameplay instancing.
 	for slot in slots: slot[1].emitting = false
 	lbl.text = "STARTUP CHECK\nPreparing first level..."
@@ -1052,3 +1116,43 @@ func _rs_test_pillar():
 	print("RS PILLAR first break call_ms=",call_ms," draw_ms=",Time.get_ticks_msec()-t)
 	await get_tree().create_timer(3.0).timeout
 	p.queue_free()
+
+# Headless first-use lag measurement (web only, ?autotest&rsmeasure in URL).
+# Calls each player action twice, logging call time and the next 3 rendered
+# frame times, so first-use spikes can be compared before/after changes.
+func _rs_measure_actions():
+	var tree = get_tree()
+	await tree.create_timer(2.0).timeout
+	if is_instance_valid(levelScene) and levelScene.has_method("skip_cutscene"):
+		levelScene.skip_cutscene()
+		print("RSMEASURE cutscene skipped")
+	for i in range(1200):
+		await tree.process_frame
+		if is_instance_valid(player):
+			break
+	# Headless intro does not grant control; force the post-intro state.
+	inControl = true
+	didPlayerIntro = true
+	await tree.create_timer(1.0).timeout
+	print("RSMEASURE begin player_valid=", is_instance_valid(player), " inControl=", inControl)
+	if not is_instance_valid(player):
+		print("RSMEASURE aborted: no player")
+		return
+	var seq = [["jump",0],["slide",1],["shoot",2],["jump",0],["slide",1],["shoot",2]]
+	var n = 0
+	for a in seq:
+		n += 1
+		var t0 = Time.get_ticks_usec()
+		match a[1]:
+			0: player.jump()
+			1: player.slide(false)
+			2: player.shoot(false,false)
+		var call_ms = (Time.get_ticks_usec()-t0)/1000.0
+		var frames = []
+		for k in range(3):
+			var f0 = Time.get_ticks_usec()
+			await RenderingServer.frame_post_draw
+			frames.append((Time.get_ticks_usec()-f0)/1000.0)
+		print("RSMEASURE n=",n," action=",a[0]," call_ms=",snapped(call_ms,0.01)," f1_ms=",snapped(frames[0],0.01)," f2_ms=",snapped(frames[1],0.01)," f3_ms=",snapped(frames[2],0.01))
+		await tree.create_timer(1.2).timeout
+	print("RSMEASURE end")
